@@ -1,0 +1,50 @@
+8
+
+dir
+43
+http://oliver.ficonab.com/svn2/rails/stomp_message/config
+http://oliver.ficonab.com/svn2/rails
+
+
+
+2007-09-20T02:22:06.448562Z
+43
+
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+ceeaca9f-745c-46d7-b156-2271164c1546
+
+requirements.rb
+file
+
+
+
+
+2007-09-20T02:22:36.000000Z
+db41ded31119640a01f363e48511cbe7
+2007-09-20T02:22:06.448562Z
+43
+
+hoe.rb
+file
+98
+
+
+
+2007-10-09T07:10:22.000000Z
+b54f8b414c7c5f22ae65a20a8098c6b9
+2007-10-16T16:12:31.596592Z
+98
+

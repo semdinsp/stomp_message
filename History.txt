@@ -1,0 +1,8 @@
+0.0.8
+fix for not closing topics
+
+
+Initial release of stomp message..
+xml casing for stomp messages
+
+arbirtrary sending of stomp messages to any topic

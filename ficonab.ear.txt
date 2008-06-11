@@ -1,0 +1,142 @@
+
+          ---------------------------
+          STATIC VERIFICATION RESULTS
+          ---------------------------
+
+	
+	 ----------------------------------
+	 NUMBER OF FAILURES/WARNINGS/ERRORS
+	 ----------------------------------
+	 # of Failures : 1
+         # of Warnings : 1
+	 # of Errors : 0
+
+          -----------------------------
+          RESULTS FOR EJB-RELATED TESTS
+          -----------------------------
+	
+	 -----------
+	 WARNINGS :
+	 -----------
+	
+	 Test Name : tests.ClassContainsNativeMethod
+	 Test Assertion : Application classes contain native methods.
+	 Test Description : For [ ficonab#MessageBean ]
+Supplied below is the list of method names (in the format <package.classname>.<methodName>) that are defined as native methods and used by the application:
+
+	com.sun.jna.Pointer._getDouble
+
+	com.sun.jna.Pointer._getShort
+
+	com.sun.jna.Pointer._setChar
+
+	com.sun.jna.NativeLibrary.open
+
+	com.sun.jna.Pointer._indexOf
+
+	com.sun.jna.Native.initIDs
+
+	com.sun.jna.Pointer._getByte
+
+	com.sun.jna.Memory.malloc
+
+	com.sun.jna.Native.longSize
+
+	com.sun.jna.Pointer._setFloat
+
+	com.sun.jna.Pointer._getPointer
+
+	com.sun.jna.Native.setPreserveLastError
+
+	com.sun.jna.Pointer._setPointer
+
+	com.sun.jna.Function.invokeLong
+
+	com.sun.jna.Native.getNativeVersion
+
+	com.sun.jna.Pointer._setString
+
+	com.sun.jna.Native.wideCharSize
+
+	com.sun.jna.Pointer._setDouble
+
+	com.sun.jna.Native.getWindowHandle0
+
+	com.sun.jna.NativeLibrary.findSymbol
+
+	com.sun.jna.Function.invokeVoid
+
+	com.sun.jna.CallbackReference.freeNativeCallback
+
+	com.sun.jna.Native.pointerSize
+
+	com.sun.jna.Function.invokeFloat
+
+	com.sun.jna.Pointer._getDirectByteBuffer
+
+	com.sun.jna.Function.invokeDouble
+
+	com.sun.jna.Pointer._read
+
+	com.sun.jna.Pointer._getInt
+
+	com.sun.jna.Pointer._getString
+
+	com.sun.jna.Native.getDirectBufferPointer
+
+	com.sun.jna.Native.getAPIChecksum
+
+	com.sun.jna.Memory.free
+
+	com.sun.jna.Native.isProtected
+
+	com.sun.jna.Function.invokeInt
+
+	com.sun.jna.Native.setLastError
+
+	com.sun.jna.Pointer._getLong
+
+	com.sun.jna.Pointer._setByte
+
+	com.sun.jna.Pointer._setMemory
+
+	com.sun.jna.Pointer._setShort
+
+	com.sun.jna.Pointer._getFloat
+
+	com.sun.jna.Pointer._setInt
+
+	com.sun.jna.Function.invokeStructure
+
+	com.sun.jna.CallbackReference.createNativeCallback
+
+	com.sun.jna.Native.getPreserveLastError
+
+	com.sun.jna.NativeLibrary.close
+
+	com.sun.jna.Native.setProtected
+
+	com.sun.jna.Pointer._getChar
+
+	com.sun.jna.Pointer._write
+
+	com.sun.jna.Function.invokePointer
+
+	com.sun.jna.Pointer._setLong
+Please make sure that you implement them on all operating systems.
+
+	 --------------
+	 FAILED TESTS : 
+	 --------------
+	
+	 Test Name : tests.ejb.ejb30.CallbackMethodException
+	 Test Assertion : Lifecycle callback interceptor methods must not throw application exceptions. Any exception other than derived from java.lang.RuntimeException or java.rmi.RemoteException is an application exception. Please refer to EJB 3.0 "Core Contracts and Requirements" Specification Section #11.4.2 for further information.
+	 Test Description : For [ ficonab#MessageBean ]
+Method [ public void com.ficonab.FiconabBase.init() throws java.io.IOException ] throws an application exception.
+Method [ public void com.ficonab.FiconabBase.destruct() throws java.io.IOException ] throws an application exception.
+
+        
+          ----------------------------------
+          END OF STATIC VERIFICATION RESULTS
+          ----------------------------------
+    

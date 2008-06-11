@@ -1,0 +1,17 @@
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn2/rails/!svn/ver/43/stomp_message/test
+END
+test_helper.rb
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svn2/rails/!svn/ver/43/stomp_message/test/test_helper.rb
+END
+test_stomp_message.rb
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn2/rails/!svn/ver/143/stomp_message/test/test_stomp_message.rb
+END

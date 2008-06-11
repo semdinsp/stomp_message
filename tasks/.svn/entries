@@ -1,0 +1,61 @@
+8
+
+dir
+43
+http://oliver.ficonab.com/svn2/rails/stomp_message/tasks
+http://oliver.ficonab.com/svn2/rails
+
+
+
+2007-09-20T02:22:06.448562Z
+43
+
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+ceeaca9f-745c-46d7-b156-2271164c1546
+
+deployment.rake
+file
+
+
+
+
+2007-09-20T02:22:35.000000Z
+2d9fe35a0fd697109c2c77085b3d4a66
+2007-09-20T02:22:06.448562Z
+43
+
+website.rake
+file
+
+
+
+
+2007-09-20T02:22:35.000000Z
+93010ec490c0ec417ec18e6f3f937e13
+2007-09-20T02:22:06.448562Z
+43
+
+environment.rake
+file
+
+
+
+
+2007-09-20T02:22:35.000000Z
+917a284d2b5e33fb48d3ae2937cccfb9
+2007-09-20T02:22:06.448562Z
+43
+
