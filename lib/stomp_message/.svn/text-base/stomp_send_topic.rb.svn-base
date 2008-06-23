@@ -1,0 +1,177 @@
+require 'yaml'
+require 'rubygems'
+gem 'stomp'
+require 'stomp'
+require 'net/smtp'
+require 'net/http'
+require 'socket'
+
+# This 
+module StompMessage
+  # this class manages sending and receiving messages.  It uses passed code block to execute received code
+class StompSendTopic
+  attr_accessor :conn, :topic, :host, :port, :login, :password, :url
+  #need to define topic, host properly
+
+ def initialize(options={})
+   # set up variables using hash
+    @close_ok=false
+     init_vars(options)
+  #  puts "host is: #{host} port is #{port}"
+  # using url as flag wrong
+  #  self.conn = Stomp::Client.new(self.login, self.password, self.host, self.port, false) if self.url ==nil
+  
+    puts "#{self.class}: Initialized host is: #{self.host} port is #{self.port} topic is #{self.topic} login #{self.login} pass: #{self.password}"
+    # scott old   self.conn.subscribe( self.topic, { :ack =>"auto" })  { |m| 
+ #    self.conn.subscribe( self.topic, { :ack =>"client" })  { |m| 
+  #                                 # puts "#{self.class} msg: #{m.to_s}"
+  #                                   }
+   # setup_auto_close
+  end
+  def init_vars(options)
+     self.login =   options[:login]==nil ? '' : options[:login]
+      self.url =   options[:url]== nil ? nil : options[:url]
+        self.password =   options[:password]==nil ? '' : options[:password]
+          self.host =   options[:host]==nil ? 'localhost' : options[:host]
+      self.port =   options[:port]==nil ? '61613' : options[:port]
+      self.topic = options[:topic]==nil ? '/topic/undefined' : options[:topic]  
+      self.conn=nil
+      puts "self url is #{self.url}"
+  end
+  # only call this once
+  def setup_auto_close
+    
+     at_exit { puts "#{self.class}: auto close exit block"
+           close_topic
+           disconnect_stomp } if !@close_ok
+      @close_ok=true
+  end  
+  #manage timeout etc...
+  def self.open_connection(old_conn,login,pass,host,port)
+      conn=old_conn
+      count=0
+      flag= false
+     begin
+      conn.close if conn!=nil
+      count+=1
+      Timeout::timeout(15) {
+           conn=nil
+           conn = Stomp::Client.new(login, pass, host, port, false)
+           flag=true
+       }
+   
+       rescue Timeout::Error
+        puts "Timeout error: exception retrying flag is: #{flag} retry number #{count}"
+        retry  if !flag and count < 4
+     #   raise "timeout" 
+    
+       end 
+        raise 'connection not established'  if conn==nil        
+        conn
+  end
+  def open_connection
+    self.conn = StompMessage::StompSendTopic.open_connection(@conn, self.login, self.password, self.host, self.port) if self.conn==nil
+  end
+  # close the topic
+   def close_topic
+        self.conn.unsubscribe(self.topic) if self.conn !=nil  
+      #  self.conn=nil 
+    end
+    #disconnect the connection
+    def disconnect_stomp
+          close_topic
+           puts "#{self.class}  closing connection"
+          self.conn.close() if self.conn !=nil   
+    end
+    # post stomp message to url
+    def post_stomp(msg,headers)
+           
+           response_header = {"Content-type" => "text/xml"}
+           response_header.merge headers
+           ht =Net::HTTP.start(self.host,self.port)
+           url = self.url + "/" + self.topic
+           r=ht.post(url,msg.to_xml,response_header)
+           puts "url was: #{url}"
+           puts "result: #{r.to_s}"
+           r
+    end
+  def send_topic(msg, headers, &r_block)
+        #  m=StompMessage::Message.new('stomp_BILLING', msg)
+           open_connection
+           more_headers= {'persistent'=>'false' }
+           # i think bug in this merge..needs to return result
+           more_headers.merge headers
+          self.conn.send(self.topic, msg.to_xml, more_headers, &r_block)
+        #  Thread.pass
+   end #send_sms
+   # be careful with the receipt topic calculations... strange errors onactive mq
+ def send_topic_acknowledge(msg, headers, timeout=4)
+          #m=StompMessage::Message.new('stomp_BILLING', msg)
+          open_connection
+          s=rand*20   # scott - used to be 1000 but seem to create connections on activemq
+          # open new topic to listen to reply...
+           # was this but jms seems to blow up  receipt_topic="/topic/receipt/client#{s.to_i}"
+          receipt_topic="/topic/rcpt_client#{s.to_i}"
+          receipt_flag = false
+         # internal_conn =  Stomp::Connection.open '', '', self.host, self.port, false 
+          self.conn.subscribe( receipt_topic, { :ack =>"client" })   {|msg|
+                        begin
+                        Timeout::timeout(timeout) {
+                            self.conn.acknowledge(msg,msg.headers)
+                    	      msg2= msg.body
+                    	       yield msg2
+                         }
+                         rescue Exception => e
+                          puts "exception #{e.message}"
+                       #   raise "timeout" 
+                         ensure
+                           receipt_flag=true
+                           self.conn.unsubscribe receipt_topic 
+                         end   
+                           }
+                          
+          
+          more_headers= {'persistent'=>'false',  'reply-to' => "#{receipt_topic}" }
+          more_headers.merge headers
+          self.conn.send(self.topic, msg.to_xml, more_headers )  
+          Thread.new {   sleep(timeout)
+                          puts "calling unsubscribe on #{receipt_topic}" if !receipt_flag
+                          self.conn.unsubscribe receipt_topic if !receipt_flag
+                           }       
+      end #send_sms
+      def send_email_stomp(from, from_alias, to, subject, message)
+        StompMessage::StompSendTopic.send_email_stomp(from,from_alias,to,subject,message)
+      end
+      def self.send_email_stomp(from, from_alias, to, subject, message)
+          #to_csv_array=to.each.join(",")
+        	msg = <<EOF__RUBY_END_OF_MESSAGE
+From: #{from_alias} <#{from}>
+To: #{to}
+Subject: #{subject} #{Time.now}
+Comand ----------
+#{subject}
+RESPONSE -----------
+#{message}
+EOF__RUBY_END_OF_MESSAGE
+         recipients=to.split(',')
+         recipients.each {|r|  StompMessage::StompSendTopic.send_email(from,r,msg)}
+        
+    end
+    def  self.send_email(from,to,msg)
+          case   Socket.gethostname
+          when "svbalance.cure.com.ph"
+                smtp_host='mail2.cure.com.ph'
+          when "Scotts-Computer.local"
+            smtp_host='mail2.cure.com.ph'
+          else
+            smtp_host='localhost'
+          end
+          
+        	Net::SMTP.start(smtp_host) { |smtp|
+        		smtp.send_message(msg, from, to)
+      	   }
+    end
+        
+ end # stomp send topic
+
+end #module

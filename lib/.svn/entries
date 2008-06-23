@@ -1,0 +1,42 @@
+8
+
+dir
+43
+http://oliver.ficonab.com/svn2/rails/stomp_message/lib
+http://oliver.ficonab.com/svn2/rails
+
+
+
+2007-09-20T02:22:06.448562Z
+43
+
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+ceeaca9f-745c-46d7-b156-2271164c1546
+
+stomp_message
+dir
+
+stomp_message.rb
+file
+
+
+
+
+2007-10-22T03:39:09.000000Z
+db7fbb6abda44cf49db804df4949aa86
+2007-09-20T02:22:06.448562Z
+43
+

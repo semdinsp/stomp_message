@@ -1,0 +1,81 @@
+require 'yaml'
+require 'erb'
+
+#require 'stomp_server'
+module StompMessage
+  # statistics listening class.  Updates the statistics at every message/event
+  # had to name it Z due to order problems. not sure why.
+  class StompZActiveRecordServer   < StompMessage::StompServer
+   attr_accessor :model_list
+def initialize(options={})
+   super(options)
+   puts "root_path: #{options[:root_path]} rails_environment #{options[:env]}"
+   setup_active_record(options[:root_path], options[:env])
+   puts "#{self.class}: finished Active Record initializing"
+  # self.model_list = []
+ end
+#check the active record connection and reestablish... wierd stuff happening at cure.
+#note this is specific tomysql... need to fix later
+	def check_active_record_connection(my_class)
+	 begin
+	   conn=my_class.new.connection
+     puts " checking AR connection status: #{conn.active?}"
+     puts " AR down... reconnecting"  if !conn.active?
+   #  puts "after first check"
+     conn.reconnect! if !conn.active?
+   # puts "after reconnect"
+  rescue Mysql::Error
+     puts "reconnecting due to Mysql:Error"
+     conn.reconnect
+  rescue Exception => e
+    puts "ActiveRecord found exception that should not be here #{e.message}"
+  end
+end
+def monitor_ar_status(connection)
+  puts "starting up active record monitor status"
+  self.mythreads << Thread.new { while true
+                 begin
+                   sleep(1000)
+                   check_active_record_connection(connection)
+                 rescue Exception => e
+                          handle_exception(e)
+                 end
+               end  # while
+                }              
+end
+# the model path needs to include the models for active record...  can be inferred from
+# table names if needed but easiest and simplest is to give path to to the rails application
+def setup_active_record(root_path,env)
+  require 'rubygems'
+  gem 'activerecord'
+  require 'active_record'
+   path= root_path + "config/database.yml"
+   puts "path is #{path}"
+   data=File.open(path).readlines.join
+   result=ERB.new(data).result
+   parsed=YAML.load(result)
+   puts "env is #{env} values are: #{parsed[env]}"
+   ActiveRecord::Base.establish_connection(parsed[env])
+   ActiveRecord::Base.logger = Logger.new(STDOUT)
+   # grab all the models
+ #   model_path = root_path + "app/models/*.rb"
+   load_models(root_path)
+   #puts "after DIR"
+ end
+ #load the AR models... override if necessary
+ # model list is an array of models to load
+ def load_models(root_path)
+      model_path = root_path  + "app/models/"
+   # puts "model path is #{model_path}"
+   last_model=""
+   self.model_list.each { |model_file|
+       lib = model_path + model_file
+       last_model = require lib 
+      puts "loading required model: is #{lib}"
+      # last_model=lib  #last one needs to be active_record  (need to fix)
+       }
+       puts "last model is #{last_model}"
+      monitor_ar_status(eval("#{last_model[0]}"))
+ end
+end   # class
+end  #module

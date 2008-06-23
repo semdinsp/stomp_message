@@ -1,0 +1,100 @@
+require 'rubygems'
+require 'timeout'
+gem 'openwferu'
+require 'openwfe/participants/participants'
+
+
+module OpenWFE
+
+    #
+    # Participant to send/receive work items to stomp message servers applications
+    # send message and asynch wait for response
+    #
+    # Timeoout may need to be changed
+    # 
+    # On the return side, you can override the method handle_call_result 
+    # for better mappings between messages calls and the workitems.
+    #
+    class StompParticipant 
+        include LocalParticipant
+        attr_accessor  :timeout_val, :options, :msg_sender
+        def initialize(topic, host='localhost', port=61613, timeout=4, &block)
+
+            
+            self.options={}
+            self.options[:host]=host
+            self.options[:port]=port
+            self.options[:topic]=topic
+            self.timeout_val = timeout
+            self.msg_sender=StompMessage::StompSendTopic.new(self.options)   
+            self.msg_sender.setup_auto_close
+        end
+
+        #
+        # The method called by the engine when the flow reaches an instance
+        # of this Participant class.
+        #
+        def consume (workitem)
+           
+            m=prepare_call_params(workitem)
+            puts "message is: #{m.to_xml}"
+           # billing_sender.send_topic(m.body,  arg_hash[:msisdn]) 
+           # m=StompMessage::Message.new('stomp_BILLING', msg)
+             header={}
+            # header[:msisdn]=workitem.attributes[:msisdn]
+                begin
+                  Timeout::timeout(self.timeout_val) {
+                    self.msg_sender.send_topic_acknowledge(m,header)  { 
+                                   |msg|  workitem=handle_call_result(msg, workitem)
+                                     }
+                  }
+                  rescue Timeout::Error
+                   puts "STOMP participant:: consume(wi) exception"
+                   workitem.attributes["__result__"]=false
+                   workitem.attributes["stomp_TIMEOUT"]=true
+                #   raise "timeout" 
+                  ensure
+                     reply_to_engine(workitem)
+                  end
+                   
+
+           
+        end
+
+        #
+        # The base implementation :prepares the message
+        # param there is a workitem field with the same name.
+        #
+        # Feel free to override this method.
+        #
+        def prepare_call_params (workitem)
+            m=StompMessage::Message.new(workitem.attributes[:command].to_s,
+                                         workitem.attributes[:body].to_s)
+            m
+           # puts "message is: #{m.to_xml}"
+        end
+
+        #
+        # This implementation simply stuffs the result into the workitem
+        # as an attribute named "__result__".
+        #
+        # Feel free to override this method.
+        #
+        def handle_call_result (result, workitem)
+
+            puts 'in handle action block' 
+             puts 'MESSAGE RECEIVED ----'
+              m= StompMessage::Message.load_xml(result)
+              workitem.attributes["__result__"]=m.to_xml
+              workitem.attributes["command"]=m.command.to_s
+               workitem.attributes["body"]=m.body.to_s
+               puts "wi #{workitem.attributes.to_s}"
+              workitem
+              
+        end
+
+       
+
+    end
+
+end

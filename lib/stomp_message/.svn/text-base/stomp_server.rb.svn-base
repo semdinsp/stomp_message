@@ -1,0 +1,199 @@
+# basic format for stomp messages
+require 'rexml/document'
+require 'socket'
+# basic server class for listening to topics
+module StompMessage
+	class StompServer
+	  attr_accessor :conn,   :topic, :msg_count, :exception_count, :host, :port, :login, :password, :queue, :thread_count, :mythreads
+     #need to define topic, host properly
+      @debug=false
+    
+    def initialize(options={})
+        @my_hostname = Socket.gethostname
+          self.login =   options[:login]==nil ? '' : options[:login]
+          num =   options[:thread_count]==nil ? '2' : options[:thread_count]
+          self.thread_count=num.to_i
+            self.password =   options[:password]==nil ? '' : options[:password]
+        self.host =   options[:host]==nil ? 'localhost' : options[:host]
+        self.port =   options[:port]==nil ? '61613' : options[:port]
+        self.topic =   options[:topic]==nil ? '/topic/please_define' : options[:topic]
+        puts "#{self.class}: message broker host is: #{host} port is #{port} topic is: #{self.topic} threads #{self.thread_count} my host: #{@my_hostname}"
+        self.msg_count = self.exception_count=0
+        self.queue= Queue.new
+        self.conn=nil
+        self.mythreads = []
+        connect_connection
+       #  self.conn = Stomp::Client.new self.login, self.password, self.host, self.port, false 
+      # self.conn = Stomp::Connection.open self.login, self.password, self.host , self.port, false 
+       connect_topic
+       @debug=false
+       module_name=self.class.to_s.split('::')[0] 
+       version_num = eval("#{module_name}::VERSION::STRING")  #note needs version/string 
+       puts "VERSION StompServer finalized:: #{self.class} #{version_num}"
+       setup_auto_close
+        trap("INT")   {  puts "#{Time.now}: #{self.class} in interrupt trap\n"
+                          #close_topic
+                          #disconnect_stomp
+                          #setup_auto_close   already done in INIT
+                          exit(0)}
+     end
+      def reconnect
+          puts "about to reconnect"
+          self.conn.close if self.conn!=nil
+          connect_connection
+         #  self.conn = Stomp::Client.new self.login, self.password, self.host, self.port, false 
+        # self.conn = Stomp::Connection.open self.login, self.password, self.host , self.port, false 
+         connect_topic
+      end
+     def connect_connection
+       self.conn = StompMessage::StompSendTopic.open_connection(self.conn, self.login, self.password, self.host, self.port) 
+     end
+     def setup_auto_close
+       at_exit { puts "#{self.class}: in at exit block"
+                 close_topic
+                 disconnect_stomp 
+                # self.mythreads.each {|t| t.raise "auto exit" }
+               }
+     end
+       def disconnect_stomp
+             puts "#{self.class} #{@my_hostname} closing connection"
+             self.conn.close() if self.conn !=nil   
+       end
+     def send_reply(headers,msg)
+       reply_topic=headers['reply-to']
+   
+           response_header = {'persistent'=>'false'}
+           response_header.merge headers
+           self.conn.send(reply_topic, msg.to_xml, response_header ) 
+     
+     end
+     # name is message command
+     def connect_topic
+       # scott old ack auot
+       # see http://activemq.apache.org/stomp.html for activemq.dispathAsync settig
+         self.conn.subscribe( self.topic, { :ack =>"client" , 'activemq.dispatchAsync' => 'false'}) { |msg|  
+            
+            self.msg_count+=1
+    	       begin	
+    	        self.conn.acknowledge(msg,msg.headers)   
+    	        self.queue << msg  
+    	         
+             rescue Exception => e
+               self.exception_count+=1
+             puts " Thread: :exception found #{e.backtrace}" 
+             puts "Thread: :exception messag #{e.message}"
+            end
+          
+           }
+     end
+     # close the topic, override if necessary
+     def close_topic
+         puts "#{self.class} #{@my_hostname} unsubscribing #{self.topic}"
+          self.conn.unsubscribe self.topic  if self.conn!=nil
+      end
+      def stomp_PING(msg,stomp_msg)
+        body="ALIVE Class: #{self.class.to_s} listing to: #{self.topic} on host #{@my_hostname} msg_count #{self.msg_count} exception_count #{self.exception_count}"
+         reply_msg = StompMessage::Message.new('stomp_REPLY', body)
+         send_reply(stomp_msg.headers,reply_msg) if stomp_msg.headers['reply-to']!=nil
+      end
+      def stomp_RECONNECT(msg,stomp_msg)
+        reconnect
+        body="ALIVE Class: #{self.class.to_s} listing to: #{self.topic} on host #{@my_hostname} msg_count #{self.msg_count} exception_count #{self.exception_count} connection status #{self.conn.open?}"
+         reply_msg = StompMessage::Message.new('stomp_REPLY', body)
+         send_reply(stomp_msg.headers,reply_msg) if stomp_msg.headers['reply-to']!=nil
+      end
+     def stomp_DEBUG(msg,stomp_msg)
+        @debug=!@debug
+        puts "debug flag is now #{@debug}"
+     end
+     def method_missing(name, *args)
+       puts "Method missing called: #{name}"
+       puts "Likely invalid message recieved"
+     end
+     # monitor queue
+     def monitor_queue_status
+       puts "starting up queue status"
+       self.mythreads << Thread.new { while true
+                    begin
+                      sleep(1000)
+                      puts "QUEUE size is: #{self.queue.size}"
+                     # puts "-------conn var is on #{self.conn.inspect}"
+                       if !self.conn.open? 
+                         puts "restarting connection"
+                         self.reconnect
+                       end
+                     rescue Exception => e
+                       handle_exception(e)
+                     end
+                    end  # while
+                     }
+     end
+     def handle_exception(e)
+       puts " Thread: #{Thread.current[:name]} :exception found #{e.backtrace}" 
+       puts "Thread: #{Thread.current[:name]} :exception messag #{e.message}"
+       result = "-----------EXCEPTION FOUND----------\n"
+       result << "ALIVE Class: #{self.class.to_s} listing to: #{self.topic} on host #{@my_hostname} msg_count #{self.msg_count} exception_count #{self.exception_count}\n"
+       result << "-----exception data--------\n"
+       result << " Thread: #{Thread.current[:name]} :exception found #{e.backtrace}\n" 
+       result << "Thread: #{Thread.current[:name]} :exception messag #{e.message}"
+         begin
+           StompMessage::StompSendTopic.send_email_stomp("scott.sproule@cure.com.ph",
+                   "STOMP EXCEPTION", "scott.sproule@cure.com.ph","Thread: #{Thread.current[:name]} :exception messag #{e.message}", result)
+         rescue Exception => e
+            puts "Can not send email, please check smtp host setting"
+         end
+     end
+     def handle_message(msg)
+        puts "STOMP message frame is : #{msg} "      if @debug
+	       m=StompMessage::Message.load_xml(msg.body)
+	      # puts "Message is: #{m.to_xml}"  if @debug
+	       puts "Message type is #{m.command}" if @debug
+	       send(m.command, m, msg)  # effectively case statement  (Should SCREEN HERE)
+	      # puts "sms text is: #{sms.text} dest is: #{sms.destination} result is: #{res}"
+     end
+     #define thread specific variables here
+     # eg Thread.currect[:smsc]=blah blah
+     def setup_thread_specific_items(mythread_number)
+     
+       Thread.current[:name]= "Thread: #{mythread_number}"
+        puts " #{Thread.current[:name]} in setup thread specific data"
+     end
+     def run
+          1.upto(self.thread_count)   { |c|  # create the threads here
+            #puts "creating thread: #{c}"
+            self.mythreads << Thread.new(c)   { |ctmp| 
+               setup_thread_specific_items(ctmp)
+               while true
+                
+                  begin	
+          	        msg=self.queue.pop
+                    handle_message(msg)   
+                   
+                   rescue Exception => e
+                     self.exception_count+=1
+                     handle_exception(e)
+                  end
+             #   Thread.pass
+               end
+              }
+            }
+           monitor_queue_status
+           self.mythreads.each { |t| t.join }
+          
+          
+   	     #  msg = self.conn.receive
+   	#       puts "after receive"
+   	     #  self.msg_count+=1
+   	     #  begin	
+   	    #     handle_message(msg)      
+         #   rescue Exception => e
+        #      self.exception_count+=1
+         #   puts "exception found #{e.backtrace}" 
+        #    puts "exception messag #{e.message}"
+         #  end
+         # end  # while
+
+       # t.join  # wait for t to die..
+     end #run
+  end
+end
